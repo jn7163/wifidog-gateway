@@ -474,7 +474,6 @@ _parse_firewall_rule(const char *ruleset, char *leftover)
 {
 	int i;
 	t_firewall_target target = TARGET_REJECT; /**< firewall target */
-	int all_nums = 1; /**< If 0, port contained non-numerics */
 	int finished = 0; /**< reached end of line */
 	char *token = NULL; /**< First word */
 	char *port = NULL; /**< port to open/block */
@@ -527,12 +526,11 @@ _parse_firewall_rule(const char *ruleset, char *leftover)
 		/* Get port now */
 		port = leftover;
 		TO_NEXT_WORD(leftover, finished);
-		for (i = 0; *(port + i) != '\0'; i++)
-			if (!isdigit((unsigned char)*(port + i)))
-				all_nums = 0; /*< No longer only digits */
-		if (!all_nums) {
-			debug(LOG_ERR, "Invalid port %s", port);
-			return -3; /*< Fail */
+		for (i = 0; *(port + i) != '\0'; i++) {
+			if (!isdigit((unsigned char)*(port + i))) {
+				debug(LOG_ERR, "Invalid port %s", port);
+				return -3; /*< Fail */
+			}
 		}
 	}
 
@@ -550,14 +548,12 @@ _parse_firewall_rule(const char *ruleset, char *leftover)
 		/* Get port now */
 		mask = leftover;
 		TO_NEXT_WORD(leftover, finished);
-		all_nums = 1;
-		for (i = 0; *(mask + i) != '\0'; i++)
+		for (i = 0; *(mask + i) != '\0'; i++) {
 			if (!isdigit((unsigned char)*(mask + i)) && (*(mask + i) != '.')
-					&& (*(mask + i) != '/'))
-				all_nums = 0; /*< No longer only digits */
-		if (!all_nums) {
-			debug(LOG_ERR, "Invalid mask %s", mask);
-			return -3; /*< Fail */
+			    && (*(mask + i) != '/')) {
+				debug(LOG_ERR, "Invalid mask %s", mask);
+				return -3; /*< Fail */
+			}
 		}
 	}
 
