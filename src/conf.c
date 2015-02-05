@@ -36,6 +36,11 @@
 #include <string.h>
 #include <ctype.h>
 
+/* for inet_ntoa() */
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 #include "common.h"
 #include "safe.h"
 #include "debug.h"
@@ -480,6 +485,7 @@ _parse_firewall_rule(const char *ruleset, char *leftover)
 	char *protocol = NULL; /**< protocol to block, tcp/udp/icmp */
 	char *mask = NULL; /**< Netmask */
 	char *other_kw = NULL; /**< other key word */
+	struct in_addr *h_addr = NULL;
 	t_firewall_ruleset *tmpr;
 	t_firewall_ruleset *tmpr2;
 	t_firewall_rule *tmp;
@@ -549,8 +555,16 @@ _parse_firewall_rule(const char *ruleset, char *leftover)
 		mask = leftover;
 		TO_NEXT_WORD(leftover, finished);
 		for (i = 0; *(mask + i) != '\0'; i++) {
-			if (!isdigit((unsigned char)*(mask + i)) && (*(mask + i) != '.')
-			    && (*(mask + i) != '/')) {
+			if (isalpha((unsigned char)*(mask + i)) || \
+			    *(mask + i) == '-') {
+				h_addr = wd_gethostbyname(mask);
+				if (!h_addr) {
+					debug(LOG_ERR, "Can't resolve mask %s", mask);
+					return -3;
+				} else {
+					break;
+				}
+			} else if (!isdigit((unsigned char)*(mask + i)) && (*(mask + i) != '.') && (*(mask + i) != '/')) {
 				debug(LOG_ERR, "Invalid mask %s", mask);
 				return -3; /*< Fail */
 			}
@@ -565,10 +579,14 @@ _parse_firewall_rule(const char *ruleset, char *leftover)
 		tmp->protocol = safe_strdup(protocol);
 	if (port != NULL)
 		tmp->port = safe_strdup(port);
-	if (mask == NULL)
+	if (h_addr) {
+		tmp->mask = safe_strdup(inet_ntoa(*h_addr));
+		free(h_addr);
+	} else if (mask == NULL) {
 		tmp->mask = safe_strdup("0.0.0.0/0");
-	else
+	} else {
 		tmp->mask = safe_strdup(mask);
+	}
 
 	debug(LOG_DEBUG, "Adding Firewall Rule %s %s port %s to %s", token, tmp->protocol, tmp->port, tmp->mask);
 	
